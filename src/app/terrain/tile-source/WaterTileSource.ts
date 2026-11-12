@@ -1,9 +1,19 @@
 import earcut from 'earcut';
 import TileSource from "./TileSource";
 import AbstractMesh from "~/lib/renderer/abstract-renderer/AbstractMesh";
+import Config from "~/app/Config";
+import {
+	fetchOpenFreeMapTemplate,
+	fetchOpenFreeMapTile,
+	getOpenFreeMapSourceTile
+} from "~/lib/tile-processing/vector/providers/OpenFreeMapTiles";
+import {Tile as proto} from "~/lib/tile-processing/vector/providers/pbf/vector_tile";
 import WaterMask from "../../objects/WaterMask";
 import AbstractRenderer from "~/lib/renderer/abstract-renderer/AbstractRenderer";
-import {PBFPolygon, PBFRing} from "~/lib/tile-processing/vector/providers/pbf/PBFGeometryParser";
+import PBFGeometryParser, {PBFPolygon, PBFRing} from "~/lib/tile-processing/vector/providers/pbf/PBFGeometryParser";
+
+const Pbf = require('pbf');
+const PolygonGeometryType = 3;
 
 export default class WaterTileSource extends TileSource<Float32Array> {
 	private mask: WaterMask = null;
@@ -12,10 +22,70 @@ export default class WaterTileSource extends TileSource<Float32Array> {
 		super(x, y, zoom);
 	}
 
-	public async load(): Promise<void> {
-		// The terrain water mask used to come from the original streets.gl vector tile server.
-		// Without it there are no water polygons, so the mask is empty.
+	/**
+	 * Water polygons of the tile in tile-relative coordinates (0..1), taken from OpenFreeMap.
+	 * Without them the mask is simply empty.
+	 */
+	private async fetchPolygons(x: number, y: number, zoom: number): Promise<PBFPolygon[]> {
 		const polygons: PBFPolygon[] = [];
+
+		try {
+			const template = await fetchOpenFreeMapTemplate(Config.OpenFreeMapTileJSON);
+
+			if (!template) {
+				return polygons;
+			}
+
+			const source = getOpenFreeMapSourceTile(x, y, zoom);
+			const buffer = await fetchOpenFreeMapTile(template, source.x, source.y, source.zoom);
+
+			if (!buffer) {
+				return polygons;
+			}
+
+			// Tiles of deeper zoom levels are cut from their parent tile
+			const shift = zoom - source.zoom;
+			const scale = 1 << shift;
+			const offsetX = x - (source.x << shift);
+			const offsetY = y - (source.y << shift);
+			const layers = proto.read(new Pbf(buffer)).layers;
+
+			for (const layer of layers) {
+				if (layer.name !== 'water') {
+					continue;
+				}
+
+				for (const feature of layer.features) {
+					if (feature.type !== PolygonGeometryType || WaterTileSource.isSwimmingPool(layer, feature)) {
+						continue;
+					}
+
+					// The parser divides by (extent - 1), while MVT coordinates span the whole extent
+					const polygon = PBFGeometryParser.convertCommandsToPolygon(feature.geometry, layer.extent + 1, 1)
+						.map(ring => ring.map(([px, py]): [number, number] => [px * scale - offsetX, py * scale - offsetY]));
+
+					polygons.push(polygon);
+				}
+			}
+		} catch (e) {
+			console.warn(`Failed to load water mask for tile ${zoom}/${x}/${y}:`, e);
+		}
+
+		return polygons;
+	}
+
+	private static isSwimmingPool(layer: {keys: string[]; values: {string_value?: string}[]}, feature: {tags: number[]}): boolean {
+		for (let i = 0; i < feature.tags.length; i += 2) {
+			if (layer.keys[feature.tags[i]] === 'class') {
+				return layer.values[feature.tags[i + 1]].string_value === 'swimming_pool';
+			}
+		}
+
+		return false;
+	}
+
+	public async load(): Promise<void> {
+		const polygons = await this.fetchPolygons(this.x, this.y, this.zoom);
 		const tris = this.polygonsToTriangles(polygons, 0, 0);
 		this.data = new Float32Array(tris);
 	}

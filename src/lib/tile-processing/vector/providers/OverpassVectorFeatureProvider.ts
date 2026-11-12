@@ -32,37 +32,86 @@ const hashString = (str: string): string => {
 	return (hash >>> 0).toString(36);
 };
 
-const getRequestBody = (x: number, y: number, zoom: number): string => {
+// Only features that the qualifier factories (see qualifiers/factories/osm) turn into something are requested.
+// Large areas (forests, farmland, water bodies, ...) are not rendered from OSM data directly, so asking Overpass for
+// them would only make the response bigger. Keep these filters in sync with the factories.
+const WayFilters = [
+	'["building"]',
+	'["building:part"]',
+	'["highway"]',
+	'["area:highway"]',
+	'["waterway"]',
+	'["man_made"~"^(pier|bridge)$"]',
+	'["aeroway"~"^(runway|taxiway|apron|helipad)$"]',
+	'["railway"~"^(rail|light_rail|subway|disused|narrow_gauge|tram)$"]',
+	'["barrier"~"^(fence|hedge|wall)$"]',
+	'["power"~"^(line|minor_line)$"]',
+	'["natural"~"^(tree_row|sand|beach|rock|bare_rock)$"]',
+	'["leisure"~"^(pitch|playground|dog_park|garden|swimming_pool)$"]',
+	'["golf"="fairway"]',
+	'["landuse"~"^(grass|construction|brownfield)$"]',
+	'["amenity"~"^(parking|bicycle_parking)$"]'
+];
+
+// Relations are only needed for features that can be areas
+const RelationFilters = [
+	'["building"]',
+	'["building:part"]',
+	'["highway"]',
+	'["area:highway"]',
+	'["man_made"~"^(pier|bridge)$"]',
+	'["aeroway"~"^(apron|helipad)$"]',
+	'["natural"~"^(sand|beach|rock|bare_rock)$"]',
+	'["leisure"~"^(pitch|playground|dog_park|garden|swimming_pool)$"]',
+	'["golf"="fairway"]',
+	'["landuse"~"^(grass|construction|brownfield)$"]',
+	'["amenity"~"^(parking|bicycle_parking)$"]'
+];
+
+const NodeFilters = [
+	'["natural"~"^(tree|rock)$"]',
+	'["emergency"="fire_hydrant"]',
+	'["advertising"="column"]',
+	'["power"~"^(tower|pole|generator)$"]',
+	'["amenity"="bench"]',
+	'["leisure"="picnic_table"]',
+	'["highway"~"^(bus_stop|turning_circle)$"]',
+	'["historic"="memorial"]',
+	'["tourism"="artwork"]',
+	'["aeroway"="helipad"]'
+];
+
+export const getRequestBody = (x: number, y: number, zoom: number): string => {
 	const position = [
 		MathUtils.tile2degrees(x - TileRequestMargin, y + 1 + TileRequestMargin, zoom),
 		MathUtils.tile2degrees(x + 1 + TileRequestMargin, y - TileRequestMargin, zoom)
 	];
 	const bbox = position[0].lat + ',' + position[0].lon + ',' + position[1].lat + ',' + position[1].lon;
-	return `
-		[out:json][timeout:30];
-		(
-			node(${bbox});
-			way(${bbox});
-			rel["type"~"^(multipolygon|building)"](${bbox});
-			//rel["type"="building"](br); // this is SLOW
-			
-			// Make sure that we have all parts of each building in the result
-			(
-				relation["building"](${bbox});
-				>;
-				way["building"](${bbox});
-			) ->.buildingOutlines;
-			way["building:part"](area.buildingOutlines);
-			
-			// Make sure that each powerline node knows about all the powerline segments it is connected to
-			//way[power=line](${bbox})->.powerline;
-			//way(around.powerline:0)[power=line];
-		);
-		
-		out body qt;
-		>>;
-		out body qt;
-	`;
+	const ways = WayFilters.map(filter => `way${filter}(${bbox});`);
+	const relations = [
+		// Groups the outline and the parts of a building; usually has no tags of its own
+		`rel["type"="building"](${bbox});`,
+		...RelationFilters.map(filter => `rel["type"~"^(multipolygon|building)"]${filter}(${bbox});`)
+	];
+	const nodes = NodeFilters.map(filter => `node${filter}(${bbox});`);
+
+	return `[out:json][timeout:30];
+(
+	${ways.join('\n\t')}
+	${relations.join('\n\t')}
+	${nodes.join('\n\t')}
+
+	// Make sure that we have all parts of each building in the result
+	(
+		relation["building"](${bbox});
+		>;
+		way["building"](${bbox});
+	) ->.buildingOutlines;
+	way["building:part"](area.buildingOutlines);
+) ->.features;
+// The recursion adds all nodes (with their tags) of the selected ways and relations; everything is printed once
+(.features; >>;);
+out body qt;`;
 };
 
 export default class OverpassVectorFeatureProvider extends VectorFeatureProvider {

@@ -9,6 +9,7 @@ export namespace WorkerMessage {
 		tile: [number, number];
 		overpassEndpoint?: string;
 		allowStaleCache?: boolean;
+		openFreeMapTemplate?: string | null;
 		isTerrainHeightEnabled?: boolean;
 		height?: Float64Array;
 	}

@@ -144,6 +144,8 @@ const Config = {
 	OverpassMaxConcurrentRequests: 2,
 	// How many times a tile is requested (on different endpoints, with backoff) before it is given up on
 	OverpassMaxAttempts: 6,
+	// TileJSON of the OpenFreeMap vector tiles (water, forests, farmland); its tile URL changes with every update
+	OpenFreeMapTileJSON: 'https://tiles.openfreemap.org/planet',
 	SlippyEndpointTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 };
 

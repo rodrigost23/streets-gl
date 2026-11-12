@@ -29,6 +29,7 @@ import Vec3 from "~/lib/math/Vec3";
 export interface Tile3DProviderParams {
 	overpassEndpoint: string;
 	allowStaleCache: boolean;
+	openFreeMapTemplate: string | null;
 	heightPromise: (positions: Float64Array) => Promise<Float64Array>;
 }
 

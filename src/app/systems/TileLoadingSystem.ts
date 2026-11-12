@@ -7,6 +7,7 @@ import TileSystem from "~/app/systems/TileSystem";
 import Vec2 from "~/lib/math/Vec2";
 import OverpassEndpointPool from "~/app/overpass/OverpassEndpointPool";
 import {WorkerMessage} from "~/app/world/worker/WorkerMessage";
+import {fetchOpenFreeMapTemplate} from "~/lib/tile-processing/vector/providers/OpenFreeMapTiles";
 
 // Endpoint settings are stored under a versioned key so that changed defaults are not hidden by old saved values
 const EndpointsStorageKey = 'overpassEndpoints.v2';
@@ -24,6 +25,8 @@ export default class TileLoadingSystem extends System {
 	public overpassEndpoints: OverpassEndpoint[] = [];
 	private readonly endpointPool = new OverpassEndpointPool();
 	private activeLoads = 0;
+	// undefined while it is being loaded, null if OpenFreeMap is not available
+	private openFreeMapTemplate: string | null | undefined = undefined;
 
 	public constructor() {
 		super();
@@ -62,7 +65,9 @@ export default class TileLoadingSystem extends System {
 	}
 
 	public postInit(): void {
-
+		fetchOpenFreeMapTemplate(Config.OpenFreeMapTileJSON).then(template => {
+			this.openFreeMapTemplate = template;
+		});
 	}
 
 	public setOverpassEndpoints(endpoints: OverpassEndpoint[]): void {
@@ -111,7 +116,7 @@ export default class TileLoadingSystem extends System {
 	}
 
 	public update(deltaTime: number): void {
-		if (this.activeLoads >= Config.OverpassMaxConcurrentRequests) {
+		if (this.openFreeMapTemplate === undefined || this.activeLoads >= Config.OverpassMaxConcurrentRequests) {
 			return;
 		}
 
@@ -201,6 +206,7 @@ export default class TileLoadingSystem extends System {
 					overpassEndpoint: endpoint,
 					// Outdated cached data is only used when nothing else worked
 					allowStaleCache: attempt === maxAttempts,
+					openFreeMapTemplate: this.openFreeMapTemplate ?? null,
 					isTerrainHeightEnabled: isTerrainHeightEnabled
 				});
 
