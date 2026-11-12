@@ -41,14 +41,11 @@ To run this application, you need a machine that supports WebGL2. It's recommend
 
 ## 🗂️ Data sources
 
-Streets GL uses two sources of data to render the map:
+This fork has no tile server of its own. Everything is loaded by the browser:
 
-- Vector tiles generated from OpenStreetMap data using [modified Planetiler](https://github.com/strandedkitty/planetiler).
+- **Buildings, roads and small objects** are queried directly from a public [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) instance, so they are as fresh as OpenStreetMap itself. The query only asks for features that the renderer uses. Several endpoints are configured (`OverpassEndpoints` in `src/app/Config.ts`, editable in Settings); a failing endpoint is paused with exponential backoff and the tile is retried on another one. Responses are cached in IndexedDB.
+- **Water, forests, shrubs and farmland** come from the static [OpenFreeMap](https://openfreemap.org/) vector tiles (OpenMapTiles schema, no API key). They also provide the water mask of the terrain.
 - [Terrain 3D](https://www.arcgis.com/home/item.html?id=7029fb60158543ad845c7e1527af11e4) tileset by Esri to visualize terrain elevation.
-
-Vector tiles are generated from the latest OSM data pulled from [Planet.osm](https://planet.openstreetmap.org/) or its mirrors. Water bodies formed by coastlines are filled using Shapefiles from [osmdata.openstreetmap.de](https://osmdata.openstreetmap.de/data/water-polygons.html). Currently, there's no automated pipeline to update the vector tiles, so they are updated manually 2-4 times a month.
-
-Map tiles are served from a small Node.js server located at [tiles.streets.gl](https://tiles.streets.gl/).
 
 ## 📦 Modules
 
