@@ -1,6 +1,7 @@
 export default interface OverpassDataObject {
 	version: number;
 	generator: string;
+	remark?: string;
 	osm3s: {
 		timestamp_osm_base: string;
 		copyright: string;

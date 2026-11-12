@@ -136,10 +136,14 @@ const Config = {
 		}
 	} as SettingsSchema,
 	OverpassEndpoints: [
+		{url: 'https://overpass-api.de/api/interpreter', isEnabled: true},
 		{url: 'https://overpass.private.coffee/api/interpreter', isEnabled: true},
-		{url: 'https://overpass-api.de/api/interpreter', isEnabled: false},
-		{url: 'https://overpass.kumi.systems/api/interpreter', isEnabled: false}
+		{url: 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', isEnabled: true}
 	],
+	// Public Overpass servers are shared and often overloaded: keep the number of parallel requests low
+	OverpassMaxConcurrentRequests: 2,
+	// How many times a tile is requested (on different endpoints, with backoff) before it is given up on
+	OverpassMaxAttempts: 6,
 	SlippyEndpointTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 };
 

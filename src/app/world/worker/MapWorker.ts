@@ -4,6 +4,7 @@ import Tile3DBuffers from "~/lib/tile-processing/tile3d/buffers/Tile3DBuffers";
 
 export interface TileRequestParams {
 	overpassEndpoint: string;
+	allowStaleCache: boolean;
 	isTerrainHeightEnabled: boolean;
 }
 
