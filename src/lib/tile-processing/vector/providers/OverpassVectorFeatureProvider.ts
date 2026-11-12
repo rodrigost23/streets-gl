@@ -10,8 +10,27 @@ import VectorBuildingOutlinesCleaner from "~/lib/tile-processing/vector/VectorBu
 import {VectorFeature} from "~/lib/tile-processing/vector/features/VectorFeature";
 import OSMHandler from "~/lib/tile-processing/vector/handlers/OSMHandler";
 import {getCollectionFromVectorFeatures} from "~/lib/tile-processing/vector/utils";
+import OverpassCache from "~/lib/tile-processing/vector/providers/OverpassCache";
+import OverpassRequestError from "~/lib/tile-processing/vector/providers/OverpassRequestError";
 
 const TileRequestMargin = 0.05;
+const CacheMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
+const CacheMaxEntries = 1500;
+// The query itself has [timeout:30]; give the server a little extra time to answer before giving up
+const FetchTimeoutMs = 35000;
+
+// One cache per worker; all workers share the same IndexedDB database
+const cache = new OverpassCache(CacheMaxAgeMs, CacheMaxEntries);
+
+const hashString = (str: string): string => {
+	let hash = 5381;
+
+	for (let i = 0; i < str.length; i++) {
+		hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+	}
+
+	return (hash >>> 0).toString(36);
+};
 
 const getRequestBody = (x: number, y: number, zoom: number): string => {
 	const position = [
@@ -47,7 +66,14 @@ const getRequestBody = (x: number, y: number, zoom: number): string => {
 };
 
 export default class OverpassVectorFeatureProvider extends VectorFeatureProvider {
-	public constructor(private readonly overpassURL: string) {
+	/**
+	 * @param overpassURL Endpoint to query.
+	 * @param allowStaleCache If the request fails, fall back to a cached response even if it is older than the cache lifetime.
+	 */
+	public constructor(
+		private readonly overpassURL: string,
+		private readonly allowStaleCache: boolean = false
+	) {
 		super();
 	}
 
@@ -63,7 +89,7 @@ export default class OverpassVectorFeatureProvider extends VectorFeatureProvider
 		}
 	): Promise<VectorFeatureCollection> {
 		const tileOrigin = MathUtils.tile2meters(x, y + 1, zoom);
-		const overpassData = await OverpassVectorFeatureProvider.fetchOverpassTile(x, y, zoom, this.overpassURL);
+		const overpassData = await this.fetchOverpassTile(x, y, zoom);
 
 		const nodeHandlersMap: Map<number, OSMNodeHandler> = new Map();
 		const wayHandlersMap: Map<number, OSMWayHandler> = new Map();
@@ -159,22 +185,72 @@ export default class OverpassVectorFeatureProvider extends VectorFeatureProvider
 		return features;
 	}
 
-	private static async fetchOverpassTile(
-		x: number,
-		y: number,
-		zoom: number,
-		overpassURL: string
-	): Promise<OverpassDataObject> {
-		const response = await fetch(overpassURL, {
-			method: 'POST',
-			body: getRequestBody(x, y, zoom)
-		});
+	private async fetchOverpassTile(x: number, y: number, zoom: number): Promise<OverpassDataObject> {
+		const body = getRequestBody(x, y, zoom);
+		const key = `${zoom}/${x}/${y}/${hashString(body)}`;
+		const cached = await cache.get(key);
 
-		if (!response.ok) {
-			throw new Error(`Overpass request failed: ${response.status}`);
+		if (cached?.isFresh) {
+			return cached.data;
 		}
 
-		return await response.json() as OverpassDataObject;
+		try {
+			const data = await OverpassVectorFeatureProvider.requestOverpass(this.overpassURL, body);
+
+			// Do not wait for the write: the tile does not depend on it
+			void cache.put(key, data);
+
+			return data;
+		} catch (error) {
+			if (cached && this.allowStaleCache) {
+				console.warn(`Overpass unavailable, using outdated cached data for tile ${x},${y}`, error);
+
+				return cached.data;
+			}
+
+			throw error;
+		}
+	}
+
+	private static async requestOverpass(url: string, body: string): Promise<OverpassDataObject> {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), FetchTimeoutMs);
+
+		try {
+			const response = await fetch(url, {
+				method: 'POST',
+				body: body,
+				signal: controller.signal
+			});
+
+			if (!response.ok) {
+				const retryAfter = Number(response.headers.get('Retry-After'));
+
+				throw new OverpassRequestError(`${url} responded with HTTP ${response.status}`, {
+					status: response.status,
+					retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined
+				});
+			}
+
+			const data = await response.json() as OverpassDataObject;
+
+			// Overpass answers 200 with an empty or partial result and a remark when a query is cut short
+			if (data.remark && /runtime error|timed out|out of memory/i.test(data.remark)) {
+				throw new OverpassRequestError(`${url} could not finish the query: ${data.remark}`);
+			}
+
+			return data;
+		} catch (error) {
+			if (error instanceof OverpassRequestError) {
+				throw error;
+			}
+
+			const reason = error?.name === 'AbortError' ? 'request timed out' : String(error?.message ?? error);
+
+			throw new OverpassRequestError(`${url} request failed: ${reason}`);
+		} finally {
+			clearTimeout(timeoutId);
+		}
 	}
 
 	private static classifyElements(elements: (NodeElement | WayElement | RelationElement)[]): {

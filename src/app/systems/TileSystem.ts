@@ -19,6 +19,7 @@ interface QueueItem {
 	position: Vec2;
 	onBeforeLoad: () => Promise<void>;
 	onLoad: (tileData: Tile3DBuffers) => Promise<void>;
+	isCancelled: () => boolean;
 }
 
 export default class TileSystem extends System {
@@ -69,6 +70,7 @@ export default class TileSystem extends System {
 					await this.claimHeightDataForTile(x, y, tile);
 				}
 			},
+			isCancelled: () => !tile || tile.disposed,
 			onLoad: async (tileData) => {
 				if (tile.disposed) {
 					return;

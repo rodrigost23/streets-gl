@@ -12,7 +12,7 @@ export default class CombinedVectorFeatureProvider extends VectorFeatureProvider
 	public constructor(params: Tile3DProviderParams) {
 		super();
 
-		this.overpassProvider = new OverpassVectorFeatureProvider(params.overpassEndpoint);
+		this.overpassProvider = new OverpassVectorFeatureProvider(params.overpassEndpoint, params.allowStaleCache);
 	}
 
 	public async getCollection(

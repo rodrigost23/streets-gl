@@ -8,8 +8,16 @@ export namespace WorkerMessage {
 		type: ToWorkerType;
 		tile: [number, number];
 		overpassEndpoint?: string;
+		allowStaleCache?: boolean;
 		isTerrainHeightEnabled?: boolean;
 		height?: Float64Array;
+	}
+
+	export interface TileError {
+		message: string;
+		status?: number;
+		retryAfterSeconds?: number;
+		isOverpassError: boolean;
 	}
 
 	export enum FromWorkerType {

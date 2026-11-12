@@ -34,7 +34,8 @@ class WorkerInstance {
 				this.fetchTile(
 					x,
 					y,
-					data.overpassEndpoint
+					data.overpassEndpoint,
+					data.allowStaleCache
 				);
 			}
 		});
@@ -43,10 +44,12 @@ class WorkerInstance {
 	private fetchTile(
 		x: number,
 		y: number,
-		overpassEndpoint: string
+		overpassEndpoint: string,
+		allowStaleCache: boolean
 	): void {
 		const provider = new Tile3DFromVectorProvider({
 			overpassEndpoint,
+			allowStaleCache,
 			heightPromise: (positions: Float64Array): Promise<Float64Array> => this.getTerrainHeight(x, y, positions)
 		});
 		const collectionPromise = provider.getCollection({x, y, zoom: WorkerInstance.TileZoom});
@@ -59,7 +62,12 @@ class WorkerInstance {
 		}).catch(error => {
 			console.error(error);
 
-			this.sendError(x, y, error);
+			this.sendError(x, y, {
+				message: String(error?.message ?? error),
+				isOverpassError: error?.name === 'OverpassRequestError',
+				status: error?.status,
+				retryAfterSeconds: error?.retryAfterSeconds
+			});
 		})
 	}
 
@@ -78,7 +86,7 @@ class WorkerInstance {
 		)
 	}
 
-	private sendError(x: number, y: number, error: string): void {
+	private sendError(x: number, y: number, error: WorkerMessage.TileError): void {
 		this.sendMessage({
 			type: WorkerMessage.FromWorkerType.Error,
 			tile: [x, y],
