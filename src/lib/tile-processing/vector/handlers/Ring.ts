@@ -63,10 +63,15 @@ export default class Ring {
 		return sum;
 	}
 
+	/**
+	 * Makes the winding order match vector tiles: outer rings are clockwise and inner rings are counterclockwise
+	 * in the tile space (x points east, y points south). Everything after the vector stage relies on this,
+	 * for example the straight skeleton requires counterclockwise outer rings in world space.
+	 */
 	public fixDirection(): void {
 		const area = this.getGaussArea();
-		const shouldReverse = (area > 0 && this.type === VectorAreaRingType.Inner) ||
-			(area < 0 && this.type === VectorAreaRingType.Outer);
+		const shouldReverse = (area < 0 && this.type === VectorAreaRingType.Inner) ||
+			(area > 0 && this.type === VectorAreaRingType.Outer);
 
 		if (shouldReverse) {
 			this.nodes.reverse();
