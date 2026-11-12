@@ -6,7 +6,7 @@ import {MdContentCopy} from "react-icons/md";
 import {AiFillDelete} from "react-icons/ai";
 import {AiFillEdit, AiTwotoneSave} from "react-icons/ai";
 
-const URLBase = 'https://streets.gl/#'
+const getURLBase = (): string => `${window.location.origin}${window.location.pathname}#`;
 
 export interface SavedPlaceParams {
 	id: string;
@@ -117,7 +117,7 @@ const SavedPlace: React.FC<{
 			<button
 				className={styles.container__controls__button}
 				onClick={(): void => {
-					navigator.clipboard.writeText(`${URLBase}${params.link}`);
+					navigator.clipboard.writeText(`${getURLBase()}${params.link}`);
 				}}
 			>
 				<MdContentCopy size={16} />

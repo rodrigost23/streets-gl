@@ -1,15 +1,10 @@
-import React, {useContext} from "react";
-import {useRecoilValue} from "recoil";
+import React from "react";
 import styles from './DataTimestamp.scss';
-import {AtomsContext} from "~/app/ui/UI";
 
 const DataTimestamp: React.FC = () => {
-	const atoms = useContext(AtomsContext);
-	const date = useRecoilValue(atoms.dataTimestamp);
-
 	return (
 		<div className={styles.timestamp}>
-			Data updated on {date ? date.toLocaleDateString() : '???'} at {date ? date.toLocaleTimeString() : '???'}
+			Live data from Overpass API
 		</div>
 	);
 };
