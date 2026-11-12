@@ -8,8 +8,6 @@ export namespace WorkerMessage {
 		type: ToWorkerType;
 		tile: [number, number];
 		overpassEndpoint?: string;
-		tileServerEndpoint?: string;
-		vectorTilesEndpointTemplate?: string;
 		isTerrainHeightEnabled?: boolean;
 		height?: Float64Array;
 	}

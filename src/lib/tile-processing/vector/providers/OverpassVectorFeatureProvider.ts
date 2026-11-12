@@ -169,6 +169,11 @@ export default class OverpassVectorFeatureProvider extends VectorFeatureProvider
 			method: 'POST',
 			body: getRequestBody(x, y, zoom)
 		});
+
+		if (!response.ok) {
+			throw new Error(`Overpass request failed: ${response.status}`);
+		}
+
 		return await response.json() as OverpassDataObject;
 	}
 

@@ -63,10 +63,6 @@ export default class UISystem extends System {
 					system.setOverpassEndpoints(value);
 				}
 			});
-
-			system.fetchTilesTimestamp().then(timestamp => {
-				this.ui.setStateFieldValue('dataTimestamp', timestamp);
-			});
 		});
 
 		this.state.settingsSchema = this.systemManager.getSystem(SettingsSystem).schema;

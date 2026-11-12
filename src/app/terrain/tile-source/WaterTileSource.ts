@@ -3,12 +3,7 @@ import TileSource from "./TileSource";
 import AbstractMesh from "~/lib/renderer/abstract-renderer/AbstractMesh";
 import WaterMask from "../../objects/WaterMask";
 import AbstractRenderer from "~/lib/renderer/abstract-renderer/AbstractRenderer";
-import PBFGeometryParser, {PBFPolygon, PBFRing} from "~/lib/tile-processing/vector/providers/pbf/PBFGeometryParser";
-import {Tile as proto} from "~/lib/tile-processing/vector/providers/pbf/vector_tile";
-import Utils from "~/app/Utils";
-import Config from "~/app/Config";
-
-const Pbf = require('pbf');
+import {PBFPolygon, PBFRing} from "~/lib/tile-processing/vector/providers/pbf/PBFGeometryParser";
 
 export default class WaterTileSource extends TileSource<Float32Array> {
 	private mask: WaterMask = null;
@@ -17,36 +12,11 @@ export default class WaterTileSource extends TileSource<Float32Array> {
 		super(x, y, zoom);
 	}
 
-	private async fetchTile(x: number, y: number, zoom: number, scale: number): Promise<PBFPolygon[]> {
-		const polygons: PBFPolygon[] = [];
-		const url = WaterTileSource.getURL(x, y, zoom);
-		const response = await fetch(url, {
-			method: 'GET'
-		});
-
-		if (response.status !== 200) {
-			return polygons;
-		}
-
-		const pbf = new Pbf(await response.arrayBuffer());
-		const obj = proto.read(pbf);
-
-		for (const layer of obj.layers) {
-			if (layer.name === 'water') {
-				for (const feature of layer.features) {
-					const polygon = PBFGeometryParser.convertCommandsToPolygon(feature.geometry, layer.extent, scale);
-
-					polygons.push(polygon);
-				}
-			}
-		}
-
-		return polygons;
-	}
-
 	public async load(): Promise<void> {
-		const tiles = await this.fetchTile(this.x, this.y, this.zoom, 1);
-		const tris = this.polygonsToTriangles(tiles, 0, 0);
+		// The terrain water mask used to come from the original streets.gl vector tile server.
+		// Without it there are no water polygons, so the mask is empty.
+		const polygons: PBFPolygon[] = [];
+		const tris = this.polygonsToTriangles(polygons, 0, 0);
 		this.data = new Float32Array(tris);
 	}
 
@@ -123,16 +93,5 @@ export default class WaterTileSource extends TileSource<Float32Array> {
 		if (this.mask) {
 			this.mask.delete();
 		}
-	}
-
-	private static getURL(x: number, y: number, zoom: number): string {
-		return Utils.resolveEndpointTemplate({
-			template: Config.TilesEndpointTemplate,
-			values: {
-				x: x,
-				y: y,
-				z: zoom
-			}
-		});
 	}
 }

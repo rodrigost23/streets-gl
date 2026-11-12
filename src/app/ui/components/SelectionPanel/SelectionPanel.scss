@@ -146,13 +146,13 @@
 	height: 16px;
 
 	&--id {
-		-webkit-mask: url("/images/id.png") center/contain;
-		mask: url("/images/id.png") center/contain;
+		-webkit-mask: url("images/id.png") center/contain;
+		mask: url("images/id.png") center/contain;
 	}
 
 	&--osm {
-		-webkit-mask: url("/images/osm.png") center/contain;
-		mask: url("/images/osm.png") center/contain;
+		-webkit-mask: url("images/osm.png") center/contain;
+		mask: url("images/osm.png") center/contain;
 	}
 }
 

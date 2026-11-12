@@ -5,7 +5,7 @@ export default class EsriElevationFetcher {
 
 	public static async fetch(x: number, y: number, zoom: number): Promise<Float32Array> {
 		if (!this.lercLoaded) {
-			await Lerc.load({ locateFile: (path, _) => `/misc/${path}` });
+			await Lerc.load({ locateFile: (path, _) => `misc/${path}` });
 			this.lercLoaded = true;
 		}
 

@@ -56,26 +56,6 @@ export default class TileLoadingSystem extends System {
 
 	}
 
-	public async fetchTilesTimestamp(): Promise<Date> {
-		const url = `${Config.TileServerEndpoint}/vector.timestamp`;
-		let timestamp: Date = null;
-
-		try {
-			const response = await fetch(url);
-
-			if (response.status === 200) {
-				const text = await response.text();
-				timestamp = new Date(text.replace(/\n/g, ''));
-			} else {
-				console.error(`Failed to fetch vector tiles timestamp. Status: ${response.status}`);
-			}
-		} catch (e) {
-			console.error(e);
-		}
-
-		return timestamp;
-	}
-
 	public setOverpassEndpoints(endpoints: OverpassEndpoint[]): void {
 		this.overpassEndpoints = endpoints;
 		localStorage.setItem('overpassEndpoints', JSON.stringify(endpoints));
@@ -138,8 +118,6 @@ export default class TileLoadingSystem extends System {
 
 		worker.requestTile(tile.x, tile.y, {
 			overpassEndpoint: overpassEndpoint,
-			tileServerEndpoint: Config.TileServerEndpoint,
-			vectorTilesEndpointTemplate: Config.TilesEndpointTemplate,
 			isTerrainHeightEnabled: isTerrainHeightEnabled
 		}).then(result => {
 			onLoad(result);

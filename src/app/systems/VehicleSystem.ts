@@ -140,22 +140,8 @@ export default class VehicleSystem extends System {
 	}
 
 	public async fetchData(): Promise<void> {
-		const camera = this.systemManager.getSystem(SceneSystem).objects.camera;
-		const normalizedPosition = MathUtils.meters2tile(camera.position.x, camera.position.z, 0);
-
-		fetch(`${Config.TileServerEndpoint}/vehicles/${normalizedPosition.x}/${normalizedPosition.y}`, {
-			method: 'GET'
-		}).then(async r => {
-			const response: VehiclesQueryResponse = await r.json();
-
-			if (this.serverTimeOffset === null) {
-				this.serverTimeOffset = response.timestamp - Date.now();
-			}
-
-			this.handleQueryResponse(response);
-		}).catch(() => {
-			console.warn('Failed to fetch vehicles');
-		});
+		// Air traffic data was provided only by the original streets.gl server, which is no longer used.
+		// The feature is disabled: there is no data source to query.
 	}
 
 	private handleQueryResponse(response: VehiclesQueryResponse): void {
