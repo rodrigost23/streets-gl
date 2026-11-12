@@ -138,6 +138,7 @@ export default class OverpassVectorFeatureProvider extends VectorFeatureProvider
 		}
 	): Promise<VectorFeatureCollection> {
 		const tileOrigin = MathUtils.tile2meters(x, y + 1, zoom);
+		const tileSize = MathUtils.getTileSizeInMeters(zoom);
 		const overpassData = await this.fetchOverpassTile(x, y, zoom);
 
 		const nodeHandlersMap: Map<number, OSMNodeHandler> = new Map();
@@ -147,11 +148,14 @@ export default class OverpassVectorFeatureProvider extends VectorFeatureProvider
 		const elements = OverpassVectorFeatureProvider.classifyElements(overpassData.elements);
 
 		for (const element of elements.nodes) {
+			// Mercator meters relative to the south-west corner of the tile: x points north, y points east
 			const position = Vec2.sub(MathUtils.degrees2meters(element.lat, element.lon), tileOrigin);
+			// Tile3DFromVectorProvider expects the same space as vector tiles (x points east, y points south),
+			// from which it converts everything to world space
 			const handler = new OSMNodeHandler(
 				element,
-				position.x,
-				position.y
+				position.y,
+				tileSize - position.x
 			);
 
 			nodeHandlersMap.set(element.id, handler);

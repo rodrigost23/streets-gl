@@ -97,14 +97,23 @@ export default class Tile3DFromVectorProvider implements FeatureProvider<Tile3DF
 		zoom: number
 	): void {
 		const tileSize = 40075016.68 / (1 << zoom);
+		// Vector features may share node objects (the first and the last node of a closed way are the same object,
+		// and so are junctions of ways), but a node must be converted exactly once
+		const transformedNodes: Set<VectorNode> = new Set();
+		const transformNode = (node: VectorNode): void => {
+			if (!transformedNodes.has(node)) {
+				transformedNodes.add(node);
+				this.transformVectorNodeToWorldSpace(node, tileSize);
+			}
+		};
 
 		for (const node of collection.nodes) {
-			this.transformVectorNodeToWorldSpace(node, tileSize);
+			transformNode(node);
 		}
 
 		for (const polyline of collection.polylines) {
 			for (const node of polyline.nodes) {
-				this.transformVectorNodeToWorldSpace(node, tileSize);
+				transformNode(node);
 			}
 		}
 
@@ -119,7 +128,7 @@ export default class Tile3DFromVectorProvider implements FeatureProvider<Tile3DF
 
 			for (const ring of area.rings) {
 				for (const node of ring.nodes) {
-					this.transformVectorNodeToWorldSpace(node, tileSize);
+					transformNode(node);
 				}
 			}
 		}
